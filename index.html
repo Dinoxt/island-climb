@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Island Dash: Renegade Racers</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #161829;
+            font-family: 'Fredoka', sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* Thick cartoon outline utility matching reference #2 */
+        .cartoon-pill {
+            background: #ffffff;
+            border: 3.5px solid #161829;
+            box-shadow: 0 5px 0 #161829;
+            border-radius: 9999px;
+            color: #161829;
+            transition: transform 0.08s ease, box-shadow 0.08s ease;
+        }
+        .cartoon-pill:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px 0 #161829;
+        }
+        .cartoon-card {
+            background: #ffffff;
+            border: 4px solid #161829;
+            box-shadow: 0 8px 0 #161829;
+            border-radius: 28px;
+            color: #161829;
+        }
+        .cartoon-title {
+            color: #ffffff;
+            -webkit-text-stroke: 8px #161829;
+            paint-order: stroke fill;
+            filter: drop-shadow(0 6px 0 #161829);
+        }
+        .cartoon-subtitle {
+            color: #ffffff;
+            -webkit-text-stroke: 5px #161829;
+            paint-order: stroke fill;
+            filter: drop-shadow(0 4px 0 #161829);
+        }
+        .pedal-btn {
+            border: 4px solid #161829;
+            box-shadow: 0 6px 0 #161829;
+            border-radius: 22px;
+            transition: transform 0.06s ease, box-shadow 0.06s ease;
+            touch-action: none;
+        }
+        .pedal-btn:active, .pedal-btn.pressed {
+            transform: translateY(5px);
+            box-shadow: 0 1px 0 #161829;
+        }
+
+        /* Landscape Prompt Overlay */
+        #landscapePrompt { display: none; }
+        @media (max-width: 800px) and (orientation: portrait) {
+            #landscapePrompt { display: flex !important; }
+            #mainMenu, #topHud, #bottomHud, #finishModal { display: none !important; }
+        }
+    </style>
+</head>
+<body class="relative">
+
+    <!-- Landscape Lock Prompt -->
+    <div id="landscapePrompt" class="fixed inset-0 bg-[#161829] z-50 flex-col items-center justify-center text-white p-6 text-center">
+        <svg class="w-24 h-24 mb-6 animate-pulse text-[#38bdf8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 10l-1.41-1.41a2 2 0 010-2.83l6.59-6.59a2 2 0 012.83 0l8.48 8.49a2 2 0 010 2.82l-6.58 6.59a2 2 0 01-2.83 0L4 10zm0 0v10a2 2 0 002 2h8a2 2 0 002-2v-4" />
+        </svg>
+        <h2 class="text-4xl font-extrabold mb-3 cartoon-title text-[#facc15]">ROTATE DEVICE</h2>
+        <p class="text-xl font-bold text-slate-300">Please turn your phone sideways to play.</p>
+    </div>
+
+    <!-- Main Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Main Menu Overlay -->
+    <div id="mainMenu" class="fixed inset-0 bg-[#161829]/90 backdrop-blur-md flex flex-col items-center justify-center z-40 p-4">
+        <h1 class="cartoon-title text-5xl sm:text-7xl font-extrabold mb-8 text-center text-[#38bdf8] leading-tight">ISLAND DASH<br><span class="text-[#facc15]">RENEGADE</span></h1>
+        
+        <div class="flex flex-col gap-4 w-full max-w-sm">
+            <button id="btnModeClassic" class="cartoon-pill py-4 px-6 text-lg sm:text-xl font-extrabold text-center bg-[#84cc16] cursor-pointer hover:bg-[#a3e635]">
+                🚗 CLASSIC CLIMB (Land)
+            </button>
+            <button id="btnModeFlying" class="cartoon-pill py-4 px-6 text-lg sm:text-xl font-extrabold text-center bg-[#f97316] text-white cursor-pointer border-[#ffffff] hover:bg-[#fb923c]">
+                🚀 ROCKET RIDER (Fly)
+            </button>
+        </div>
+    </div>
+
+    <!-- Top HUD (Reference 2 Style) -->
+    <div id="topHud" class="fixed top-4 left-4 right-4 flex justify-between items-center pointer-events-none z-20 hidden">
+        <!-- Coins & Fuel Pill -->
+        <div class="cartoon-pill px-4 py-1.5 flex items-center gap-3 pointer-events-auto">
+            <div class="flex items-center gap-1 text-lg sm:text-xl font-extrabold">
+                <span class="text-[#facc15]" id="hudCoins">0</span>
+                <span class="text-slate-400 text-sm">🪙</span>
+            </div>
+            <div class="h-5 w-[3px] bg-[#161829] rounded-full"></div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-[#ef4444]">FUEL</span>
+                <div class="w-20 sm:w-32 h-3.5 bg-slate-200 rounded-full border-2 border-[#161829] overflow-hidden p-0.5">
+                    <div id="hudFuel" class="h-full bg-[#ef4444] rounded-full transition-all duration-75" style="width: 100%"></div>
+                </div>
+                <span id="hudDist" class="hidden sm:inline-block text-xs bg-[#38bdf8] text-white border-2 border-[#161829] px-2 py-0.5 rounded-full font-extrabold">0m</span>
+            </div>
+        </div>
+
+        <!-- Center Game Title -->
+        <div id="topTitleBadge" class="hidden md:block pointer-events-none">
+            <h1 class="cartoon-subtitle text-3xl tracking-wide font-extrabold">Hill Climb</h1>
+        </div>
+
+        <div class="flex gap-2 pointer-events-auto">
+            <button id="btnMenuFromGame" class="cartoon-pill px-3 sm:px-5 py-1.5 text-xs sm:text-base font-extrabold tracking-wider uppercase cursor-pointer hover:bg-slate-50 bg-[#ef4444] text-white">
+                MENU
+            </button>
+            <!-- Garage Button -->
+            <button id="btnGarage" class="cartoon-pill px-3 sm:px-5 py-1.5 text-xs sm:text-base font-extrabold tracking-wider uppercase cursor-pointer hover:bg-slate-50">
+                🔧 GARAGE
+            </button>
+        </div>
+    </div>
+
+    <!-- Bottom Pill Bar & Mobile/Laptop Controls -->
+    <div id="bottomHud" class="fixed bottom-4 left-4 right-4 flex justify-between items-end pointer-events-none z-20 hidden">
+        <!-- Left Touch Pedals -->
+        <div class="flex gap-2.5 sm:gap-3 pointer-events-auto">
+            <button id="btnThrust" class="pedal-btn bg-[#f97316] text-white w-16 h-16 sm:w-20 sm:h-20 flex flex-col items-center justify-center cursor-pointer">
+                <svg class="w-7 h-7 stroke-[3]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
+                </svg>
+                <span class="text-[11px] sm:text-xs font-extrabold tracking-wider uppercase">FLY</span>
+            </button>
+            <button id="btnTiltBack" class="pedal-btn bg-[#38bdf8] text-white w-14 h-16 sm:w-16 sm:h-20 flex flex-col items-center justify-center cursor-pointer" title="Wheelie / Backflip">
+                <svg class="w-6 h-6 stroke-[3]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+                </svg>
+                <span class="text-[10px] sm:text-xs font-extrabold uppercase">WHEELIE</span>
+            </button>
+        </div>
+
+        <!-- Center Bottom Options Pills -->
+        <div class="flex flex-col items-center gap-2 pointer-events-auto">
+            <div id="controlHint" class="bg-[#161829]/85 text-white text-xs sm:text-sm font-bold px-3.5 py-1 rounded-full tracking-wide">
+                Drive Far! Don't Flip! Watch Fuel!
+            </div>
+            <div class="flex gap-2.5">
+                <button id="btnSound" class="cartoon-pill px-4 py-1.5 text-xs sm:text-sm font-extrabold flex items-center gap-1.5 cursor-pointer">
+                    <span id="soundIcon">🔊</span>
+                </button>
+                <button id="btnChangeCar" class="cartoon-pill px-4 py-1.5 text-xs sm:text-sm font-extrabold flex items-center gap-1.5 cursor-pointer text-[#a855f7]">
+                    <span>🔄</span>
+                    <span id="carNameText">Hippie Van</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Right Touch Pedals -->
+        <div class="flex gap-2.5 sm:gap-3 pointer-events-auto">
+            <button id="btnGas" class="pedal-btn bg-[#84cc16] text-[#161829] w-20 h-16 sm:w-24 sm:h-20 flex flex-col items-center justify-center cursor-pointer">
+                <svg class="w-7 h-7 stroke-[3]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+                <span class="text-[11px] sm:text-xs font-extrabold tracking-wider uppercase">GAS</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Garage / Game Over Modal Overlay -->
+    <div id="finishModal" class="fixed inset-0 bg-[#161829]/80 backdrop-blur-sm flex items-center justify-center z-30 hidden p-4 pointer-events-auto">
+        <div class="cartoon-card max-w-md w-full p-6 text-center animate-bounce-once relative">
+            <h2 id="modalTitle" class="cartoon-title text-4xl sm:text-5xl font-extrabold mb-1 text-[#ef4444]">DRIVER DOWN!</h2>
+            <p id="modalSubtitle" class="text-slate-600 font-bold text-base sm:text-lg mb-4">Distance: <span id="runDist">0</span>m | Coins: <span id="runCoins" class="text-[#f59e0b]">0</span></p>
+            
+            <!-- Upgrades -->
+            <div class="bg-slate-100 border-3 border-[#161829] rounded-2xl p-4 mb-5 space-y-3 text-left">
+                <div class="flex justify-between items-center">
+                    <span class="font-extrabold">Engine (Torque)</span>
+                    <button id="upgEngine" class="cartoon-pill px-3 py-1 text-sm font-bold bg-[#facc15] cursor-pointer">10 🪙</button>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="font-extrabold">Tires (Grip)</span>
+                    <button id="upgTires" class="cartoon-pill px-3 py-1 text-sm font-bold bg-[#facc15] cursor-pointer">10 🪙</button>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="font-extrabold">Fuel Tank</span>
+                    <button id="upgFuel" class="cartoon-pill px-3 py-1 text-sm font-bold bg-[#facc15] cursor-pointer">10 🪙</button>
+                </div>
+            </div>
+
+            <div class="flex gap-3 justify-center">
+                <button id="btnChangeCarModal" class="cartoon-pill px-4 py-3 text-sm font-extrabold bg-[#38bdf8] text-[#161829] cursor-pointer flex-1">
+                    NEXT RIDE
+                </button>
+                <button id="btnPlayAgain" class="cartoon-pill px-4 py-3 text-sm font-extrabold bg-[#84cc16] text-[#161829] cursor-pointer flex-1">
+                    DRIVE!
+                </button>
+            </div>
+            
+            <!-- Close Garage Button -->
+            <button id="btnCloseGarage" class="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-[#ef4444] border-4 border-[#161829] text-white font-black text-xl hidden flex items-center justify-center cursor-pointer shadow-[0_4px_0_#161829] active:translate-y-1 active:shadow-none">X</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ISLAND DASH: RENEGADE RACERS
+         * Combines the 5-car chaotic island pack racing from Image 1
+         * with the thick-outlined, vibrant vector graphics & UI from Image 2.
+         */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Thick outline color matching Reference #2
+        const INK = '#161829';
+
+        // Sound Synthesizer (Web Audio API - zero external files needed)
+        class SoundFX {
+            constructor() {
+                this.enabled = true;
+                this.ctx = null;
+            }
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+            beep(freq = 440, duration = 0.12, type = 'triangle', vol = 0.12) {
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch (e) {}
+            }
+            playCountdown(go = false) {
+                if (go) {
+                    this.beep(880, 0.35, 'square', 0.15);
+                } else {
+                    this.beep(440, 0.15, 'square', 0.1);
+                }
+            }
+            playBoost() {
+                this.beep(260, 0.25, 'sawtooth', 0.12);
+                setTimeout(() => this.beep(390, 0.25, 'sawtooth', 0.12), 60);
+            }
+            playBump() {
+                this.beep(130, 0.1, 'square', 0.14);
+            }
+            playFlip() {
+                this.beep(523.25, 0.1, 'triangle', 0.15);
+                setTimeout(() => this.beep(659.25, 0.12, 'triangle', 0.15), 80);
+                setTimeout(() => this.beep(783.99, 0.2, 'triangle', 0.18), 160);
+            }
+        }
+
+        const sfx = new SoundFX();
+
+        // Vehicle Archetypes from Image 1
+        const VEHICLE_SPECS = [
+            {
+                id: 'tuk',
+                name: 'Island Tuk-Tuk',
+                shortName: 'Tuk-Tuk',
+                width: 82,
+                height: 54,
+                wheelRadius: 14,
+                wheelOffsetX: 25,
+                topSpeed: 10.6,
+                accel: 0.34,
+                weight: 0.85,
+                color: '#f59e0b'
+            },
+            {
+                id: 'hatch',
+                name: 'Lime Hatch',
+                shortName: 'Lime Hatch',
+                width: 104,
+                height: 46,
+                wheelRadius: 15,
+                wheelOffsetX: 33,
+                topSpeed: 11.1,
+                accel: 0.31,
+                weight: 1.0,
+                color: '#65a30d'
+            },
+            {
+                id: 'hippie',
+                name: 'Hippie Camper',
+                shortName: 'Hippie Van',
+                width: 126,
+                height: 62,
+                wheelRadius: 17,
+                wheelOffsetX: 40,
+                topSpeed: 11.4,
+                accel: 0.32,
+                weight: 1.25,
+                color: '#ef4444'
+            },
+            {
+                id: 'truck',
+                name: 'Cluck Truck',
+                shortName: 'Cluck Truck',
+                width: 118,
+                height: 54,
+                wheelRadius: 17,
+                wheelOffsetX: 38,
+                topSpeed: 11.0,
+                accel: 0.30,
+                weight: 1.3,
+                color: '#78350f'
+            },
+            {
+                id: 'cow',
+                name: 'Moo Cruiser',
+                shortName: 'Moo Cruiser',
+                width: 114,
+                height: 50,
+                wheelRadius: 16,
+                wheelOffsetX: 37,
+                topSpeed: 11.2,
+                accel: 0.32,
+                weight: 1.1,
+                color: '#fef9c3'
+            }
+        ];
+
+        // Game State (Hill Climb Physics & Economy)
+        let totalCoins = 0;
+        let fuel = 100;
+        let maxFuel = 100;
+        let distance = 0;
+        let items = []; // Collectibles
+        const upgrades = { engine: 0, tires: 0, fuel: 0 };
+        const UPGRADE_COSTS = [10, 25, 50, 100, 250];
+        
+        let selectedPlayerSpecIndex = 2; // Default to Hippie Van
+        let racers = [];
+        let particles = [];
+        let floatingTexts = [];
+        let raceState = 'MENU'; // RACING, GAMEOVER, GARAGE, MENU
+        let gameMode = 'FLYING'; // CLASSIC, FLYING
+        let cameraX = 0;
+        let cameraY = 0;
+
+        // Input state
+        const keys = { gas: false, thrust: false, tiltBack: false };
+
+        // Resize canvas smoothly
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Deterministic Terrain Generator - Gets progressively steeper and harder!
+        function getTerrainHeight(x) {
+            const base = 360;
+            if (x < 650) return base; // Flat starting zone
+            
+            const distScale = Math.min(1.8, x / 15000); // Terrain bumps scale up over distance
+            const wave1 = Math.sin(x * 0.0032) * (58 + distScale * 45);
+            const wave2 = Math.sin(x * 0.0085 + 1.2) * (28 + distScale * 35);
+            const wave3 = Math.cos(x * 0.017) * (12 + distScale * 15);
+            const jumpZone = Math.pow(Math.max(0, Math.sin(x * 0.0019)), 5) * -(75 + distScale * 55);
+            
+            return base + wave1 + wave2 + wave3 + jumpZone;
+        }
+
+        function getTerrainSlope(x) {
+            const delta = 6;
+            const y1 = getTerrainHeight(x - delta);
+            const y2 = getTerrainHeight(x + delta);
+            return Math.atan2(y2 - y1, delta * 2);
+        }
+
+        // Spawn items chunk by chunk so memory isn't wasted
+        let lastItemSpawnX = 650;
+        function spawnItems(upToX) {
+            while (lastItemSpawnX < upToX) {
+                // Spawn Coins
+                if (Math.random() < 0.65) {
+                    const groupSize = 3 + Math.floor(Math.random() * 6);
+                    for (let i = 0; i < groupSize; i++) {
+                        items.push({
+                            type: 'coin',
+                            x: lastItemSpawnX + i * 40,
+                            y: getTerrainHeight(lastItemSpawnX + i * 40) - 25 - Math.sin(i) * 12,
+                            collected: false
+                        });
+                    }
+                }
+                // Spawn Fuel Canister
+                if (Math.random() < 0.3) {
+                    items.push({
+                        type: 'fuel',
+                        x: lastItemSpawnX + 250,
+                        y: getTerrainHeight(lastItemSpawnX + 250) - 20,
+                        collected: false
+                    });
+                }
+                lastItemSpawnX += 450 + Math.random() * 300;
+            }
+        }
+
+        // Pre-generate decorative soil spots
+        const soilPebbles = [];
+        for (let i = 0; i < 65; i++) {
+            soilPebbles.push({
+                offsetX: i * 38,
+                depthY: 22 + (i * 37) % 160,
+                r: 8 + (i * 19) % 24,
+                shade: i % 3 === 0 ? '#78350f' : (i % 2 === 0 ? '#451a03' : '#92400e')
+            });
+        }
+
+        // Pre-generate endless track props (Palms & Bushes)
+        const trackProps = [];
+        for (let x = 250; x < 50000; x += 340) {
+            trackProps.push({
+                x: x + (Math.sin(x) * 80),
+                type: (Math.floor(x / 340) % 3 === 0) ? 'palm' : 'bush',
+                scale: 0.85 + (Math.abs(Math.cos(x)) * 0.35)
+            });
+        }
+
+        // Racer Class - Adapted for pure Solo Hill Climb
+        class Racer {
+            constructor(specIndex) {
+                this.spec = VEHICLE_SPECS[specIndex];
+                this.isPlayer = true;
+                this.x = 250;
+                this.y = getTerrainHeight(this.x) - this.spec.wheelRadius;
+                this.vx = 0;
+                this.vy = 0;
+                this.angle = 0;
+                this.va = 0;
+                this.grounded = true;
+                this.flips = 0;
+                this.cumulativeAirAngle = 0;
+                this.wheelSpin = 0;
+                this.roofWobble = 0;
+                this.dead = false;
+            }
+
+            update(dt) {
+                if (this.dead || raceState !== 'RACING') {
+                    this.vx *= 0.95; // Coast to stop
+                }
+
+                const groundY = getTerrainHeight(this.x) - this.spec.wheelRadius;
+                const groundSlope = getTerrainSlope(this.x);
+
+                let throttle = 0;
+                let thrusting = false;
+                let manualTilt = 0;
+
+                // Apply Upgrade Multipliers
+                const engineMult = 1 + (upgrades.engine * 0.16);
+                const tireMult = 1 + (upgrades.tires * 0.12);
+
+                if (!this.dead && raceState === 'RACING') {
+                    if (keys.gas && fuel > 0) {
+                        throttle = 1;
+                        fuel -= 0.045; // Base fuel drain
+                    }
+                    if (keys.thrust) {
+                        thrusting = true;
+                        // ONLY apply forward tilt if we are using classic brakes. Fly mode should stay balanced!
+                        if (gameMode !== 'FLYING') {
+                            manualTilt = 1; 
+                        }
+                    }
+                    if (keys.tiltBack && fuel > 0) {
+                        manualTilt = -1; // Wheelie
+                    }
+                }
+                
+                // Apply Mode Specific Physics (Classic Brake vs Jet Thruster)
+                if (thrusting) {
+                    if (gameMode === 'FLYING') {
+                        // Upward Lift (Belly Thruster)
+                        const liftPower = 0.85;
+                        this.vx += Math.sin(this.angle) * liftPower;
+                        this.vy -= Math.cos(this.angle) * liftPower;
+                        
+                        // Forward Push (Dicky/Rear Thruster)
+                        const forwardThrust = 0.45;
+                        this.vx += Math.cos(this.angle) * forwardThrust;
+                        this.vy += Math.sin(this.angle) * forwardThrust;
+                        
+                        // Pop off ground
+                        if (this.grounded) {
+                            this.y -= 2;
+                            this.grounded = false;
+                        }
+                        
+                        // Emit Thruster Particles
+                        if (Math.random() < 0.8) {
+                            // 1. Belly Lift Particles (shooting down, orange/yellow fire)
+                            particles.push({
+                                x: this.x - Math.sin(this.angle) * 4,
+                                y: this.y + Math.cos(this.angle) * 4,
+                                vx: -Math.sin(this.angle) * 7 + (Math.random() - 0.5) * 4 + this.vx * 0.3,
+                                vy: Math.cos(this.angle) * 7 + (Math.random() - 0.5) * 4 + this.vy * 0.3,
+                                size: 6 + Math.random() * 8,
+                                color: Math.random() > 0.4 ? '#f97316' : '#facc15',
+                                life: 15 + Math.random() * 10
+                            });
+                            
+                            // 2. Dicky/Rear Forward Particles (shooting backward, blue jet fire)
+                            const rearX = -this.spec.width * 0.45;
+                            const rearY = -14;
+                            const rPx = this.x + (rearX * Math.cos(this.angle) - rearY * Math.sin(this.angle));
+                            const rPy = this.y + (rearX * Math.sin(this.angle) + rearY * Math.cos(this.angle));
+                            
+                            particles.push({
+                                x: rPx,
+                                y: rPy,
+                                vx: -Math.cos(this.angle) * 11 + (Math.random() - 0.5) * 4 + this.vx * 0.3,
+                                vy: -Math.sin(this.angle) * 11 + (Math.random() - 0.5) * 4 + this.vy * 0.3,
+                                size: 8 + Math.random() * 12,
+                                color: Math.random() > 0.4 ? '#38bdf8' : '#bae6fd', 
+                                life: 15 + Math.random() * 15
+                            });
+
+                            if (Math.random() < 0.25) sfx.beep(120 + Math.random() * 80, 0.1, 'sawtooth', 0.06);
+                        }
+                    } else {
+                        // CLASSIC MODE - Ground Brakes
+                        if (this.grounded) {
+                            this.vx *= 0.85; // Apply strong braking friction
+                        }
+                    }
+                }
+
+                // Acceleration & Slope Gravity Physics
+                if (this.grounded) {
+                    const maxSpd = this.spec.topSpeed * engineMult;
+                    if (throttle > 0 && this.vx < maxSpd) {
+                        this.vx += this.spec.accel * engineMult * throttle;
+                    }
+                    
+                    // Gravity pullback heavily scales with the hill slope
+                    this.vx -= Math.sin(groundSlope) * 0.23;
+                    this.vx *= 0.985; // Natural rolling friction
+
+                    // Dirt kickup
+                    if (throttle > 0.5 && Math.random() < 0.3 && Math.abs(this.vx) > 2) {
+                        particles.push({
+                            x: this.x - this.spec.wheelOffsetX,
+                            y: this.y + this.spec.wheelRadius,
+                            vx: -this.vx * 0.3 - Math.random(),
+                            vy: -1 - Math.random() * 2,
+                            size: 5 + Math.random() * 5,
+                            color: '#78350f',
+                            life: 15
+                        });
+                    }
+                } else {
+                    this.vx *= 0.995; // Air drag
+                }
+
+                // Reverse clamp
+                if (this.vx < -4) this.vx = -4;
+
+                // Apply Velocities
+                this.x += this.vx;
+                this.vy += 0.48; // Gravity
+                this.y += this.vy;
+                this.wheelSpin += this.vx * 0.08;
+                this.roofWobble = Math.sin(this.wheelSpin * 0.9) * Math.min(4, Math.abs(this.vx) * 0.35);
+
+                // Ground Collision Resolution
+                const newGroundY = getTerrainHeight(this.x) - this.spec.wheelRadius;
+                const newSlope = getTerrainSlope(this.x);
+
+                if (this.y >= newGroundY) {
+                    this.y = newGroundY;
+                    this.grounded = true;
+
+                    // Did we land on the roof? Driver Down!
+                    const normAngle = Math.atan2(Math.sin(this.angle), Math.cos(this.angle));
+                    if (Math.abs(normAngle) > 1.9) {
+                        if (!this.dead) {
+                            this.dead = true;
+                            sfx.playBump();
+                            spawnFloatingText(this.x, this.y - 60, 'CRASH!', '#ef4444');
+                            triggerGameOver("DRIVER DOWN!");
+                        }
+                        this.vx *= 0.3; // Slide to stop
+                        this.angle = newSlope;
+                    } else {
+                        // Smooth terrain alignment
+                        const angleDiff = newSlope - normAngle;
+                        this.angle = normAngle + angleDiff * 0.4;
+                        if (manualTilt < 0 && this.vx > 1) this.angle -= 0.12; // Wheelie Pop
+                        this.va = 0;
+                    }
+
+                    const targetVy = Math.tan(newSlope) * this.vx;
+                    if (this.vy > targetVy + 1.2) this.vy = targetVy;
+                    this.cumulativeAirAngle = 0;
+                } else {
+                    // Mid-air rotation
+                    this.grounded = false;
+                    if (manualTilt !== 0) this.va += manualTilt * 0.009;
+                    this.va *= 0.95;
+                    this.angle += this.va;
+                    this.cumulativeAirAngle += this.va;
+
+                    // 360 Full Backflip Bonus!
+                    if (Math.abs(this.cumulativeAirAngle) >= Math.PI * 1.8) {
+                        this.cumulativeAirAngle = 0;
+                        totalCoins += 50;
+                        this.vx += 2.5; // Speed boost
+                        sfx.playFlip();
+                        spawnFloatingText(this.x, this.y - 75, '+50 🪙 FLIP!', '#facc15');
+                    }
+                }
+            }
+        }
+
+        function spawnFloatingText(x, y, text, color = '#facc15') {
+            floatingTexts.push({ x, y, text, color, life: 45 });
+        }
+
+        function triggerGameOver(reason) {
+            if (raceState === 'GAMEOVER') return;
+            raceState = 'GAMEOVER';
+            setTimeout(() => {
+                document.getElementById('modalTitle').textContent = reason;
+                document.getElementById('modalTitle').style.color = reason === 'OUT OF GAS!' ? '#f59e0b' : '#ef4444';
+                document.getElementById('runDist').textContent = distance;
+                document.getElementById('runCoins').textContent = totalCoins;
+                
+                updateGarageUI();
+                
+                document.getElementById('finishModal').classList.remove('hidden');
+                document.getElementById('btnCloseGarage').classList.remove('hidden');
+            }, 1200);
+        }
+
+        function updateGarageUI() {
+            const uKeys = ['Engine', 'Tires', 'Fuel'];
+            uKeys.forEach(k => {
+                const lower = k.toLowerCase();
+                const lvl = upgrades[lower];
+                const btn = document.getElementById(`upg${k}`);
+                if (lvl >= 5) {
+                    btn.textContent = 'MAX';
+                    btn.classList.replace('bg-[#facc15]', 'bg-slate-300');
+                    btn.disabled = true;
+                } else {
+                    const cost = UPGRADE_COSTS[lvl];
+                    btn.textContent = `${cost} 🪙`;
+                    if (totalCoins >= cost) {
+                        btn.classList.replace('bg-slate-300', 'bg-[#facc15]');
+                        btn.disabled = false;
+                    } else {
+                        btn.classList.replace('bg-[#facc15]', 'bg-slate-300');
+                        btn.disabled = true;
+                    }
+                }
+            });
+            document.getElementById('hudCoins').textContent = totalCoins;
+        }
+
+        function buyUpgrade(type) {
+            const lvl = upgrades[type];
+            if (lvl >= 5) return;
+            const cost = UPGRADE_COSTS[lvl];
+            if (totalCoins >= cost) {
+                totalCoins -= cost;
+                upgrades[type]++;
+                sfx.beep(780, 0.12);
+                updateGarageUI();
+            } else {
+                sfx.beep(200, 0.15); // Fail sound
+            }
+        }
+
+        function showMenu() {
+            raceState = 'MENU';
+            document.getElementById('mainMenu').classList.remove('hidden');
+            document.getElementById('topHud').classList.add('hidden');
+            document.getElementById('bottomHud').classList.add('hidden');
+            document.getElementById('finishModal').classList.add('hidden');
+            document.getElementById('btnCloseGarage').classList.add('hidden');
+            initRace(); // Reset to spawn a fresh car to sit idle in background
+        }
+
+        function startGame(mode) {
+            gameMode = mode;
+            
+            const leftBtn = document.getElementById('btnThrust');
+            const leftSvg = leftBtn.querySelector('svg');
+            const leftLabel = leftBtn.querySelector('span');
+            
+            if (mode === 'FLYING') {
+                // Rocket Setup
+                leftBtn.className = 'pedal-btn bg-[#f97316] text-white w-16 h-16 sm:w-20 sm:h-20 flex flex-col items-center justify-center cursor-pointer';
+                leftLabel.textContent = 'FLY';
+                leftSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />';
+            } else {
+                // Classic Brake Setup
+                leftBtn.className = 'pedal-btn bg-[#ef4444] text-white w-16 h-16 sm:w-20 sm:h-20 flex flex-col items-center justify-center cursor-pointer';
+                leftLabel.textContent = 'BRAKE';
+                leftSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M5.25 7.5A2.25 2.25 0 017.5 5.25h9a2.25 2.25 0 012.25 2.25v9a2.25 2.25 0 01-2.25 2.25h-9a2.25 2.25 0 01-2.25-2.25v-9z" />';
+            }
+
+            document.getElementById('mainMenu').classList.add('hidden');
+            document.getElementById('topHud').classList.remove('hidden');
+            document.getElementById('bottomHud').classList.remove('hidden');
+            
+            sfx.beep(880, 0.2);
+            initRace();
+            raceState = 'RACING';
+        }
+
+        // Initialize or Reset Run
+        function initRace() {
+            racers = [];
+            particles = [];
+            floatingTexts = [];
+            items = [];
+            lastItemSpawnX = 650;
+            if (raceState !== 'MENU') {
+                raceState = 'RACING';
+            }
+            distance = 0;
+            
+            // Fuel Tank Upgrade math
+            maxFuel = 100 + (upgrades.fuel * 25);
+            fuel = maxFuel;
+            
+            document.getElementById('finishModal').classList.add('hidden');
+            document.getElementById('btnCloseGarage').classList.add('hidden');
+
+            racers.push(new Racer(selectedPlayerSpecIndex));
+            document.getElementById('carNameText').textContent = VEHICLE_SPECS[selectedPlayerSpecIndex].shortName;
+
+            const lead = racers[0];
+            cameraX = lead.x - canvas.width * 0.35;
+            cameraY = lead.y - canvas.height * 0.62;
+        }
+
+        // ============================================================================
+        // VECTOR GRAPHICS ENGINE (Thick Outlines & Cel Shading like Reference Image 2)
+        // ============================================================================
+
+        function drawRoundedRect(ctx, x, y, w, h, r, fill, stroke = INK, lineWidth = 3.5) {
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, r);
+            if (fill) {
+                ctx.fillStyle = fill;
+                ctx.fill();
+            }
+            if (stroke) {
+                ctx.lineWidth = lineWidth;
+                ctx.strokeStyle = stroke;
+                ctx.stroke();
+            }
+        }
+
+        function drawWheel(ctx, x, y, r, angle, isCowCar = false) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+
+            // Tire
+            ctx.beginPath();
+            ctx.arc(0, 0, r, 0, Math.PI * 2);
+            ctx.fillStyle = '#27272a';
+            ctx.fill();
+            ctx.lineWidth = 3.5;
+            ctx.strokeStyle = INK;
+            ctx.stroke();
+
+            // Rim
+            ctx.beginPath();
+            ctx.arc(0, 0, r * 0.58, 0, Math.PI * 2);
+            ctx.fillStyle = isCowCar ? '#f472b6' : '#e2e8f0';
+            ctx.fill();
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = INK;
+            ctx.stroke();
+
+            // Spokes
+            ctx.beginPath();
+            ctx.moveTo(-r * 0.5, 0);
+            ctx.lineTo(r * 0.5, 0);
+            ctx.moveTo(0, -r * 0.5);
+            ctx.lineTo(0, r * 0.5);
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = INK;
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawVehicle(ctx, racer) {
+            const s = racer.spec;
+            ctx.save();
+            ctx.translate(racer.x, racer.y);
+            ctx.rotate(racer.angle);
+
+            const wob = racer.roofWobble;
+
+            if (s.id === 'tuk') {
+                // 1. Yellow/Orange Auto-Rickshaw (Tuk-Tuk from left of Image 1)
+                // Body Base
+                drawRoundedRect(ctx, -38, -28, 76, 26, 8, '#f59e0b');
+                // Green trim stripe
+                drawRoundedRect(ctx, -36, -12, 72, 6, 2, '#16a34a', INK, 2);
+                // Dark Canvas Canopy
+                ctx.beginPath();
+                ctx.moveTo(-36, -28);
+                ctx.lineTo(-28, -54 + wob * 0.4);
+                ctx.lineTo(24, -52 + wob * 0.4);
+                ctx.lineTo(34, -28);
+                ctx.closePath();
+                ctx.fillStyle = '#475569';
+                ctx.fill();
+                ctx.lineWidth = 3.5;
+                ctx.strokeStyle = INK;
+                ctx.stroke();
+
+                // Windshield
+                drawRoundedRect(ctx, 14, -47 + wob * 0.3, 14, 16, 4, '#38bdf8', INK, 3);
+            } 
+            else if (s.id === 'hatch') {
+                // 2. Green Retro Hatchback with Purple Windows (2nd car in Image 1)
+                ctx.beginPath();
+                ctx.moveTo(-48, -6);
+                ctx.lineTo(-46, -26);
+                ctx.lineTo(-24, -44);
+                ctx.lineTo(18, -44);
+                ctx.lineTo(46, -24);
+                ctx.lineTo(50, -6);
+                ctx.closePath();
+                ctx.fillStyle = '#65a30d';
+                ctx.fill();
+                ctx.lineWidth = 3.5;
+                ctx.strokeStyle = INK;
+                ctx.stroke();
+
+                // Glossy top highlight
+                ctx.beginPath();
+                ctx.moveTo(-22, -40);
+                ctx.lineTo(15, -40);
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#bef264';
+                ctx.stroke();
+
+                // Purple Tinted Windows
+                drawRoundedRect(ctx, -22, -40, 17, 14, 3, '#a855f7', INK, 3);
+                drawRoundedRect(ctx, -1, -40, 22, 14, 3, '#a855f7', INK, 3);
+            } 
+            else if (s.id === 'hippie') {
+                // 3. Iconic 60s Hippie Camper Van with Rainbow Waves & Roof Toilet/PC (Center car in Image 1!)
+                // Upper Cream Shell
+                drawRoundedRect(ctx, -60, -56, 120, 50, [18, 22, 8, 8], '#fde68a');
+
+                // Lower Red & Rainbow Wave Section
+                ctx.save();
+                ctx.beginPath();
+                ctx.roundRect(-60, -32, 120, 26, [0, 0, 8, 8]);
+                ctx.clip();
+
+                ctx.fillStyle = '#dc2626';
+                ctx.fillRect(-60, -32, 120, 26);
+
+                // Bold Rainbow Stripes
+                const waveColors = ['#3b82f6', '#22c55e', '#facc15', '#f97316'];
+                waveColors.forEach((col, idx) => {
+                    ctx.beginPath();
+                    ctx.arc(-10, -2, 34 - idx * 6, Math.PI, 0);
+                    ctx.lineWidth = 6;
+                    ctx.strokeStyle = col;
+                    ctx.stroke();
+                });
+                ctx.restore();
+
+                // Re-stroke outer body for crisp Reference 2 cartoon outline
+                drawRoundedRect(ctx, -60, -56, 120, 50, [18, 22, 8, 8], null, INK, 3.8);
+
+                // Beltline divider
+                ctx.beginPath();
+                ctx.moveTo(-60, -32);
+                ctx.lineTo(60, -32);
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = INK;
+                ctx.stroke();
+
+                // Front Cabin Window
+                drawRoundedRect(ctx, 18, -50, 32, 15, 5, '#93c5fd', INK, 3);
+
+                // Peace Sign on Front Door
+                ctx.beginPath();
+                ctx.arc(32, -19, 7, 0, Math.PI * 2);
+                ctx.moveTo(32, -26);
+                ctx.lineTo(32, -12);
+                ctx.moveTo(32, -19);
+                ctx.lineTo(27, -14);
+                ctx.moveTo(32, -19);
+                ctx.lineTo(37, -14);
+                ctx.lineWidth = 2.2;
+                ctx.strokeStyle = INK;
+                ctx.stroke();
+
+                // Roof Rack + Toilet + CRT Monitor (Exact comical detail from Image 1!)
+                // Porcelain Toilet on roof
+                drawRoundedRect(ctx, -38, -78 + wob, 12, 16, 3, '#ffffff', INK, 2.8);
+                drawRoundedRect(ctx, -28, -69 + wob, 13, 8, 3, '#ffffff', INK, 2.8);
+                // CRT Monitor on roof
+                drawRoundedRect(ctx, -12, -74 + wob * 0.7, 18, 15, 3, '#e2e8f0', INK, 2.8);
+                drawRoundedRect(ctx, -9, -71 + wob * 0.7, 12, 9, 2, '#334155', INK, 2);
+                // Cardboard Box
+                drawRoundedRect(ctx, 9, -70 + wob * 0.5, 16, 12, 2, '#f59e0b', INK, 2.8);
+                // Metal Roof Rack Bars
+                drawRoundedRect(ctx, -44, -61, 76, 5, 2, '#cbd5e1', INK, 2.5);
+            } 
+            else if (s.id === 'truck') {
+                // 4. Brown Vintage Pickup Truck with Wooden Crate & Chickens (4th car in Image 1!)
+                // Wooden Crate in Truck Bed
+                drawRoundedRect(ctx, -54, -46, 48, 22, 3, '#b45309', INK, 3);
+                // Crate slats
+                ctx.beginPath();
+                ctx.moveTo(-54, -38);
+                ctx.lineTo(-6, -38);
+                ctx.lineWidth = 2.5;
+                ctx.strokeStyle = INK;
+                ctx.stroke();
+
+                // Cute Bouncing Cartoon Chickens inside crate
+                for (let c = 0; c < 2; c++) {
+                    const cx = -40 + c * 18;
+                    const cy = -50 + (c % 2 === 0 ? wob : -wob);
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                    ctx.lineWidth = 2.5;
+                    ctx.strokeStyle = INK;
+                    ctx.stroke();
+                    // Red Comb
+                    ctx.beginPath();
+                    ctx.arc(cx, cy - 8, 3.5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fill();
+                    ctx.stroke();
+                }
+
+                // Pickup Cab & Bed
+                ctx.beginPath();
+                ctx.moveTo(-56, -6);
+                ctx.lineTo(-56, -28);
+                ctx.lineTo(-4, -28);
+                ctx.lineTo(-4, -50);
+                ctx.lineTo(24, -50);
+                ctx.lineTo(32, -30);
+                ctx.lineTo(56, -26);
+                ctx.lineTo(56, -6);
+                ctx.closePath();
+                ctx.fillStyle = '#78350f';
+                ctx.fill();
+                ctx.lineWidth = 3.5;
+                ctx.strokeStyle = INK;
+                ctx.stroke();
+
+                // Cab Window
+                drawRoundedRect(ctx, 2, -45, 20, 14, 3, '#93c5fd', INK, 3);
+            } 
+            else if (s.id === 'cow') {
+                // 5. Spotted Cow Pattern Minivan with Pink Windows (Front car in Image 1!)
+                ctx.beginPath();
+                ctx.moveTo(-54, -6);
+                ctx.lineTo(-52, -42);
+                ctx.quadraticCurveTo(-50, -48, -32, -48);
+                ctx.lineTo(14, -48);
+                ctx.quadraticCurveTo(38, -46, 54, -20);
+                ctx.lineTo(56, -6);
+                ctx.closePath();
+
+                ctx.save();
+                ctx.fillStyle = '#fef9c3';
+                ctx.fill();
+                ctx.clip();
+
+                // Black Cow Spots
+                ctx.fillStyle = '#1e293b';
+                const spots = [[-36, -18, 12], [-8, -12, 11], [20, -16, 13], [-20, -30, 8]];
+                spots.forEach(([sx, sy, sr]) => {
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                ctx.restore();
+
+                // Thick Outline
+                ctx.lineWidth = 3.5;
+                ctx.strokeStyle = INK;
+                ctx.stroke();
+
+                // Pink Tinted Windows
+                drawRoundedRect(ctx, -42, -43, 22, 15, 4, '#f472b6', INK, 3);
+                drawRoundedRect(ctx, -16, -43, 24, 15, 4, '#f472b6', INK, 3);
+                drawRoundedRect(ctx, 12, -43, 22, 15, 4, '#f472b6', INK, 3);
+            }
+
+            // Draw Both Wheels
+            drawWheel(ctx, -s.wheelOffsetX, 0, s.wheelRadius, racer.wheelSpin, s.id === 'cow');
+            drawWheel(ctx, s.wheelOffsetX, 0, s.wheelRadius, racer.wheelSpin, s.id === 'cow');
+
+            ctx.restore();
+        }
+
+        // Draw Background Scenery (Volcano, Cruise Ship, Sailboats, Tropical Islands from Image 1 in Image 2 Vector Style)
+        function drawBackground(ctx, w, h) {
+            // 1. Vibrant Tropical Sky with subtle diagonal sunbeams (referencing Image 2's striped backdrop energy)
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.55);
+            skyGrad.addColorStop(0, '#86efac');
+            skyGrad.addColorStop(0.55, '#d9f99d');
+            skyGrad.addColorStop(1, '#fef08a');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Subtle diagonal bright stripes in sky
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+            for (let i = -2; i < 16; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * 160, 0);
+                ctx.lineTo(i * 160 + 75, 0);
+                ctx.lineTo(i * 160 + 20, h * 0.5);
+                ctx.lineTo(i * 160 - 55, h * 0.5);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
+
+            const horizonY = h * 0.45 - cameraY * 0.15;
+
+            // 2. Majestic Volcano on Left (Parallax)
+            const volcanoX = 210 - (cameraX * 0.05) % (w + 600);
+            ctx.save();
+            ctx.translate(volcanoX, horizonY + 8);
+
+            // Volcano Cone
+            ctx.beginPath();
+            ctx.moveTo(-210, 0);
+            ctx.lineTo(-52, -210);
+            ctx.lineTo(48, -210);
+            ctx.lineTo(210, 0);
+            ctx.closePath();
+            ctx.fillStyle = '#94a3b8';
+            ctx.fill();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = INK;
+            ctx.stroke();
+
+            // Volcano Ridges
+            ctx.beginPath();
+            ctx.moveTo(-20, -210);
+            ctx.lineTo(-75, -40);
+            ctx.moveTo(15, -210);
+            ctx.lineTo(65, -50);
+            ctx.lineWidth = 3.5;
+            ctx.strokeStyle = '#64748b';
+            ctx.stroke();
+
+            // Fluffy Cloud Ring around Volcano Peak
+            drawRoundedRect(ctx, -110, -165, 215, 26, 13, '#ffffff', INK, 3.5);
+
+            // Lush Green Island Base at Volcano Foot
+            ctx.beginPath();
+            for (let bx = -190; bx <= 190; bx += 38) {
+                ctx.arc(bx, -6, 28, Math.PI, 0);
+            }
+            ctx.lineTo(210, 10);
+            ctx.lineTo(-210, 10);
+            ctx.closePath();
+            ctx.fillStyle = '#84cc16';
+            ctx.fill();
+            ctx.lineWidth = 3.5;
+            ctx.strokeStyle = INK;
+            ctx.stroke();
+            ctx.restore();
+
+            // 3. Turquoise Ocean Band
+            if (horizonY < h) {
+                const seaGrad = ctx.createLinearGradient(0, horizonY, 0, h);
+                seaGrad.addColorStop(0, '#0284c7');
+                seaGrad.addColorStop(0.5, '#38bdf8');
+                seaGrad.addColorStop(1, '#bae6fd');
+                ctx.fillStyle = seaGrad;
+                ctx.fillRect(0, horizonY, w, h - horizonY);
+
+                // Horizon Ink Line
+                ctx.beginPath();
+                ctx.moveTo(0, horizonY);
+                ctx.lineTo(w, horizonY);
+                ctx.lineWidth = 3.5;
+                ctx.strokeStyle = INK;
+                ctx.stroke();
+            }
+
+            // 4. Cruise Ship & Sailboats on the Ocean (Parallax)
+            const shipX = 420 - (cameraX * 0.12) % (w + 500);
+            ctx.save();
+            ctx.translate(shipX, horizonY + 34);
+            // Hull
+            ctx.beginPath();
+            ctx.moveTo(-65, 0);
+            ctx.lineTo(65, 0);
+            ctx.lineTo(52, 18);
+            ctx.lineTo(-55, 18);
+            ctx.closePath();
+            ctx.fillStyle = '#2563eb';
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = INK;
+            ctx.stroke();
+            // Cabin Deck
+            drawRoundedRect(ctx, -45, -14, 85, 14, 4, '#ffffff', INK, 3);
+            // Twin Smokestacks
+            drawRoundedRect(ctx, -20, -28, 10, 14, 2, '#facc15', INK, 2.5);
+            drawRoundedRect(ctx, 8, -28, 10, 14, 2, '#facc15', INK, 2.5);
+            ctx.restore();
+
+            // Distant Tropical Islets & White Sailboats
+            for (let i = 0; i < 4; i++) {
+                const islX = ((i * 420) - (cameraX * 0.18)) % (w + 400);
+                const drawX = islX < -200 ? islX + w + 400 : islX;
+                const islY = horizonY + 52 + (i % 2) * 22;
+
+                // Sandy Islet
+                ctx.save();
+                ctx.translate(drawX, islY);
+                ctx.beginPath();
+                ctx.arc(0, 0, 38, Math.PI, 0);
+                ctx.closePath();
+                ctx.fillStyle = '#bef264';
+                ctx.fill();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = INK;
+                ctx.stroke();
+
+                // Mini Sailboat nearby
+                ctx.translate(75, 8);
+                ctx.beginPath();
+                ctx.moveTo(0, -32);
+                ctx.lineTo(18, 0);
+                ctx.lineTo(-14, 0);
+                ctx.closePath();
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+                ctx.lineWidth = 2.8;
+                ctx.strokeStyle = INK;
+                ctx.stroke();
+                drawRoundedRect(ctx, -16, 0, 36, 8, 4, '#ef4444', INK, 2.5);
+                ctx.restore();
+            }
+        }
+
+        function drawPalmTree(ctx, x, y, scale = 1) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+
+            // Curved Trunk
+            ctx.beginPath();
+            ctx.moveTo(-6, 0);
+            ctx.quadraticCurveTo(-14, -45, 4, -85);
+            ctx.lineTo(12, -85);
+            ctx.quadraticCurveTo(-2, -45, 6, 0);
+            ctx.closePath();
+            ctx.fillStyle = '#92400e';
+            ctx.fill();
+            ctx.lineWidth = 3.5;
+            ctx.strokeStyle = INK;
+            ctx.stroke();
+
+            // Lush Palm Fronds
+            const angles = [-2.4, -1.6, -0.7, 0.2, 0.9];
+            angles.forEach(a => {
+                ctx.save();
+                ctx.translate(8, -85);
+                ctx.rotate(a);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(22, -14, 44, 4);
+                ctx.quadraticCurveTo(22, 2, 0, 0);
+                ctx.fillStyle = '#65a30d';
+                ctx.fill();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = INK;
+                ctx.stroke();
+                ctx.restore();
+            });
+
+            ctx.restore();
+        }
+
+        function drawItems(ctx) {
+            items.forEach(item => {
+                if (item.collected || item.x < cameraX - 100 || item.x > cameraX + canvas.width + 100) return;
+                
+                ctx.save();
+                ctx.translate(item.x, item.y);
+                if (item.type === 'coin') {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+                    ctx.fillStyle = '#facc15';
+                    ctx.fill();
+                    ctx.lineWidth = 2.5;
+                    ctx.strokeStyle = INK;
+                    ctx.stroke();
+                    ctx.fillStyle = INK;
+                    ctx.font = '800 13px Fredoka';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('$', 0, 1);
+                } else if (item.type === 'fuel') {
+                    // Red Fuel Canister
+                    drawRoundedRect(ctx, -10, -14, 20, 28, 4, '#ef4444', INK, 2.5);
+                    drawRoundedRect(ctx, -6, -18, 12, 5, 2, '#facc15', INK, 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '800 9px Fredoka';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('GAS', 0, 3);
+                }
+                ctx.restore();
+            });
+        }
+
+        function drawTrackAndSoil(ctx, w, h) {
+            const startX = Math.floor(cameraX / 20) * 20 - 60;
+            const endX = cameraX + w + 80;
+
+            // Draw Background Track Props (Palm Trees & Bushes)
+            trackProps.forEach(prop => {
+                if (prop.x > startX - 100 && prop.x < endX + 100) {
+                    const py = getTerrainHeight(prop.x);
+                    drawPalmTree(ctx, prop.x, py + 4, prop.scale);
+                }
+            });
+
+            // Grass and Dirt Terrain Solid Fill
+            ctx.beginPath();
+            ctx.moveTo(startX, cameraY + h + 200);
+            for (let x = startX; x <= endX; x += 20) {
+                ctx.lineTo(x, getTerrainHeight(x));
+            }
+            ctx.lineTo(endX, cameraY + h + 200);
+            ctx.closePath();
+            
+            // Dirt Fill
+            ctx.fillStyle = '#78350f'; 
+            ctx.fill();
+
+            // Thick Grass Stroke
+            ctx.beginPath();
+            for (let x = startX; x <= endX; x += 20) {
+                if (x === startX) ctx.moveTo(x, getTerrainHeight(x));
+                else ctx.lineTo(x, getTerrainHeight(x));
+            }
+            ctx.lineWidth = 14;
+            ctx.strokeStyle = '#65a30d';
+            ctx.stroke();
+
+            // Crisp Ink Outline for Grass Top
+            ctx.beginPath();
+            for (let x = startX; x <= endX; x += 20) {
+                if (x === startX) ctx.moveTo(x, getTerrainHeight(x) - 7);
+                else ctx.lineTo(x, getTerrainHeight(x) - 7);
+            }
+            ctx.lineWidth = 3.5;
+            ctx.strokeStyle = INK;
+            ctx.stroke();
+        }
+
+        function updateAndDraw() {
+            // Main Game Loop
+
+            // Spawn items ahead of camera
+            spawnItems(cameraX + canvas.width + 1000);
+
+            // Update All Vehicles
+            racers.forEach(r => r.update(0));
+
+            const lead = racers[0]; // Only 1 car playing now
+            if (lead && raceState === 'RACING') {
+                distance = Math.max(distance, Math.floor(lead.x / 10));
+
+                // Check Item Collection (Coins & Fuel)
+                items.forEach(item => {
+                    if (!item.collected && Math.abs(lead.x - item.x) < 45 && Math.abs(lead.y - item.y) < 45) {
+                        item.collected = true;
+                        if (item.type === 'coin') {
+                            totalCoins += 5;
+                            sfx.beep(880, 0.1, 'sine', 0.1);
+                            spawnFloatingText(item.x, item.y, '+5 🪙', '#facc15');
+                        } else if (item.type === 'fuel') {
+                            fuel = Math.min(maxFuel, fuel + maxFuel * 0.4); // Restore 40% fuel
+                            sfx.beep(520, 0.2, 'square', 0.12);
+                            spawnFloatingText(item.x, item.y, 'GAS UP!', '#ef4444');
+                        }
+                    }
+                });
+
+                // Out of gas check
+                if (fuel <= 0 && Math.abs(lead.vx) < 0.5 && !lead.dead) {
+                    lead.dead = true;
+                    triggerGameOver("OUT OF GAS!");
+                }
+            }
+
+            // Update HUD Elements
+            document.getElementById('hudDist').textContent = `${distance}m`;
+            document.getElementById('hudCoins').textContent = totalCoins;
+            document.getElementById('hudFuel').style.width = `${Math.max(0, (fuel/maxFuel)*100)}%`;
+            if (fuel < maxFuel * 0.2) document.getElementById('hudFuel').style.backgroundColor = '#f97316'; // Warning color
+            else document.getElementById('hudFuel').style.backgroundColor = '#ef4444';
+
+            // Smooth Camera Tracking to lead car
+            if (lead) {
+                const targetCamX = lead.x - canvas.width * 0.34 + lead.vx * 10;
+                const targetCamY = lead.y - canvas.height * 0.62;
+                cameraX += (targetCamX - cameraX) * 0.14;
+                cameraY += (targetCamY - cameraY) * 0.12;
+            }
+
+            // Render Scene
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground(ctx, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(-cameraX, -cameraY);
+
+            drawTrackAndSoil(ctx, canvas.width, canvas.height);
+            drawItems(ctx);
+
+            // Draw Dirt Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                ctx.beginPath();
+                
+                // Prevent negative radius crashes by clamping the size to a minimum of 0
+                const radius = Math.max(0, p.size * (p.life / 18));
+                ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                
+                ctx.fillStyle = p.color;
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = INK;
+                ctx.stroke();
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            // Draw Vehicles (Reversed so lead is drawn on top)
+            [...racers].reverse().forEach(r => drawVehicle(ctx, r));
+
+            // Draw Floating Stunt Texts
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                const ft = floatingTexts[i];
+                ft.y -= 1.2;
+                ft.life--;
+                ctx.save();
+                ctx.font = '800 22px Fredoka';
+                ctx.textAlign = 'center';
+                ctx.lineWidth = 5;
+                ctx.strokeStyle = INK;
+                ctx.strokeText(ft.text, ft.x, ft.y);
+                ctx.fillStyle = ft.color;
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+                if (ft.life <= 0) floatingTexts.splice(i, 1);
+            }
+
+            ctx.restore();
+            requestAnimationFrame(updateAndDraw);
+        }
+
+        // ============================================================================
+        // CONTROLS SETUP (Laptop Keyboard + Mobile Multi-Touch Pedals)
+        // ============================================================================
+        window.addEventListener('keydown', e => {
+            if (['ArrowRight', 'KeyD'].includes(e.code)) keys.gas = true;
+            if (['ArrowLeft', 'KeyA'].includes(e.code)) keys.thrust = true;
+            if (['ArrowUp', 'KeyW'].includes(e.code)) keys.tiltBack = true;
+            if (e.code === 'KeyR') initRace();
+        });
+
+        window.addEventListener('keyup', e => {
+            if (['ArrowRight', 'KeyD'].includes(e.code)) keys.gas = false;
+            if (['ArrowLeft', 'KeyA'].includes(e.code)) keys.thrust = false;
+            if (['ArrowUp', 'KeyW'].includes(e.code)) keys.tiltBack = false;
+        });
+
+        function bindPedal(btnId, keyName) {
+            const btn = document.getElementById(btnId);
+            const press = (e) => {
+                e.preventDefault();
+                keys[keyName] = true;
+                btn.classList.add('pressed');
+            };
+            const release = (e) => {
+                e.preventDefault();
+                keys[keyName] = false;
+                btn.classList.remove('pressed');
+            };
+            btn.addEventListener('pointerdown', press);
+            btn.addEventListener('pointerup', release);
+            btn.addEventListener('pointerleave', release);
+            btn.addEventListener('pointercancel', release);
+        }
+
+        bindPedal('btnGas', 'gas');
+        bindPedal('btnThrust', 'thrust');
+        bindPedal('btnTiltBack', 'tiltBack');
+
+        // UI Modals & Buttons
+        document.getElementById('btnModeClassic').addEventListener('click', () => startGame('CLASSIC'));
+        document.getElementById('btnModeFlying').addEventListener('click', () => startGame('FLYING'));
+        document.getElementById('btnMenuFromGame').addEventListener('click', showMenu);
+
+        document.getElementById('btnPlayAgain').addEventListener('click', () => {
+            sfx.beep(620, 0.1);
+            initRace();
+            raceState = 'RACING';
+        });
+        
+        document.getElementById('btnGarage').addEventListener('click', () => {
+            document.getElementById('modalTitle').textContent = "GARAGE";
+            document.getElementById('modalTitle').style.color = "#161829";
+            document.getElementById('modalSubtitle').innerHTML = `Total Coins: <span class="text-[#f59e0b]">${totalCoins}</span>`;
+            updateGarageUI();
+            document.getElementById('finishModal').classList.remove('hidden');
+            document.getElementById('btnCloseGarage').classList.remove('hidden');
+            raceState = 'GARAGE';
+        });
+
+        document.getElementById('btnCloseGarage').addEventListener('click', () => {
+            document.getElementById('finishModal').classList.add('hidden');
+            if (raceState === 'GARAGE') raceState = 'RACING'; 
+        });
+
+        document.getElementById('btnChangeCarModal').addEventListener('click', () => {
+            selectedPlayerSpecIndex = (selectedPlayerSpecIndex + 1) % VEHICLE_SPECS.length;
+            sfx.beep(580, 0.1);
+            initRace();
+        });
+        
+        document.getElementById('btnChangeCar').addEventListener('click', () => {
+            selectedPlayerSpecIndex = (selectedPlayerSpecIndex + 1) % VEHICLE_SPECS.length;
+            sfx.beep(580, 0.1);
+            initRace();
+        });
+
+        document.getElementById('btnSound').addEventListener('click', () => {
+            sfx.enabled = !sfx.enabled;
+            document.getElementById('soundIcon').textContent = sfx.enabled ? '🔊' : '🔇';
+            if (sfx.enabled) sfx.beep(660, 0.1);
+        });
+
+        // Upgrades Store Events
+        ['Engine', 'Tires', 'Fuel'].forEach(k => {
+            document.getElementById(`upg${k}`).addEventListener('click', () => buyUpgrade(k.toLowerCase()));
+        });
+
+        // Start Game on Load
+        window.onload = function () {
+            showMenu();
+            updateAndDraw();
+        };
+    </script>
+</body>
+</html>
